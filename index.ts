@@ -29,7 +29,19 @@ const PROFFESSIONS_VALIDES=[
   'Serrurier',
   'Jardinier'
 ]
-
+app.get('/artisans/search',async(req,res)=>{
+  try{
+    const {profession}=req.query
+    if(!profession){
+      return res.status(404).json({success:false,message:"profession not found"})
+    }
+    const data=await db.any(`SELECT * FROM artisans WHERE LOWER(profession)=LOWER($1) ORDER BY rating DESC`,[profession])
+    res.status(200).json({success:true,message:"arisans return avec success", data:data})
+  }catch(error:any){
+   console.log(error.message)
+   res.status(500).json({message:"server error"})
+  }
+})
 app.post('/artisans',async(req,res)=>{
   try{
        const {nom,prenom,profession,telephone,email,adresse,rating}=req.body;
@@ -98,6 +110,7 @@ app.put('/artisans/:id',async(req,res)=>{
   try{
     const {id}=req.params
        const {nom,prenom,profession,telephone,email,adresse,rating}=req.body;
+       //COALESCE deal with null
        const update=await db.one(`UPDATE artisans SET
          nom =COALESCE($1,nom),
         prenom=COALESCE($2,prenom),
@@ -120,6 +133,51 @@ res.status(500).json({
   error:error.message
 })
   }
+})
+app.delete('/artisan/:id',async(req,res)=>{
+  try{
+    const {id}=req.params
+    const artisanDelet= await db.oneOrNone(`DELETE FROM artisans WHERE id = $1 RETURNING *`,[id])
+    if(!artisanDelet){
+      return res.status(404).json({message:"not found"})
+    }
+    res.status(200).json({
+      success:true,
+      message:"artisan delete success",
+      data:artisanDelet
+    })
+  }catch(error:any){
+    console.log(error.message)
+        res.status(400).json({
+      success:false
+    })
+  }
+})
+app.get('/stats/total',async(req,res)=>{
+    try{
+      //DISTINCT remove duplicate
+     const state=await db.one(`SELECT COUNT(*) as total_artisans,AVG(rating) as average_rating,COUNT(DISTINCT profession) as nomber_profeesion FROM artisans`)
+     const profession=await db.any(`SELECT profession ,COUNT(*) as number FROM artisans GROUP BY profession ORDER BY number DESC`);
+     res.status(200).json({success:true,message:"data retrive success",data:{
+      total_artisans:parseInt(state.total_artisans),
+      average_rating:parseInt(state.average_rating),
+      nomber_profession:parseInt(state.nomber_profeesion),
+      profession:profession
+     }})
+    }catch(error:any){
+    console.log(error.message)
+    res.status(500).send({message:"error"})
+    }
+})
+app.get('/filter/rating',async(req,res)=>{
+   try{
+   const {min}=req.query as any
+
+   const query=await db.any(`SELECT * FROM artisans WHERE rating >= $1 ORDER BY rating DESC`,[parseFloat(min)])
+   res.status(200).json({success:true,message:"filter sucess",data:query})
+   }catch(error:any){
+     console.log(error.message)
+   }
 })
 app.listen(port,()=>{
     console.log(`server is running http://localhost:${port}`)
