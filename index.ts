@@ -97,6 +97,10 @@ app.get('/artisans/:id',async(req,res)=>{
    try{
     const {id}=req.params
     const artisanExiste=await db.oneOrNone(`SELECT * FROM artisans where id = $1`,[id])
+    if(!artisanExiste){
+      return res.status(404).json({sucess:false,message:"artisan not found"})
+    }
+
     res.status(200).json({
       success:true,
       data:artisanExiste
